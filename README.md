@@ -15,7 +15,7 @@ A simple, elegant web application that extracts high-quality album artwork from 
 
 ## 🎮 Live Demo
 
-Visit the live demo: [Your GitHub Pages URL will go here]
+Visit the live demo: [[Link]](https://ayellynx.github.io/spotify-album-art-extractor/)
 
 ## 🚀 Quick Start
 
@@ -170,5 +170,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 Made with ❤️ for music lovers everywhere
+
 
 **Note**: This tool is not affiliated with Spotify. It uses publicly available APIs and follows Spotify's terms of service.
