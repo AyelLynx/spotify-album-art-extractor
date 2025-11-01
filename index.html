@@ -80,36 +80,35 @@
 
     <!-- Simple visitor counter -->
     <script>
-        // Multiple fallback options for visitor counter
+        // GitHub Pages compatible visitor counter
         async function loadVisitorCounter() {
             const counterElement = document.getElementById('visitor-count');
             
             try {
-                // Option 1: CountAPI with simpler namespace
-                const response = await fetch('https://api.countapi.xyz/hit/spotify-art-extractor/visits');
+                // Use a CORS-friendly counter service
+                const response = await fetch('https://visitor-badge.glitch.me/badge?page_id=AyelLynx.spotify-album-art-extractor&format=json');
                 if (response.ok) {
                     const data = await response.json();
                     counterElement.textContent = `👁️ ${data.value} visitors`;
                     return;
                 }
             } catch (error) {
-                console.log('CountAPI failed, trying alternatives...');
+                console.log('Visitor badge API failed:', error);
             }
             
             try {
-                // Option 2: Alternative counter service
-                const response2 = await fetch('https://api.countapi.xyz/get/spotify-art-extractor/visits');
-                if (response2.ok) {
-                    const data = await response2.json();
-                    counterElement.textContent = `👁️ ${data.value || 'N/A'} visitors`;
-                    return;
-                }
+                // Alternative: Use a simple incrementing counter with localStorage
+                let visits = localStorage.getItem('spotify-art-visits') || 0;
+                visits = parseInt(visits) + 1;
+                localStorage.setItem('spotify-art-visits', visits);
+                counterElement.textContent = `👁️ ${visits} visits (local)`;
+                return;
             } catch (error) {
-                console.log('Alternative counter failed');
+                console.log('localStorage failed:', error);
             }
             
-            // Fallback: Show static message
-            counterElement.textContent = '👁️ Visit counter';
+            // Final fallback: Show a visitor badge image
+            counterElement.innerHTML = '<img src="https://visitor-badge.glitch.me/badge?page_id=AyelLynx.spotify-album-art-extractor&left_color=green&right_color=blue" alt="Visitors" style="height: 20px; vertical-align: middle;">';
         }
         
         // Load counter when page loads
