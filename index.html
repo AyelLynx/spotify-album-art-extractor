@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spotify Album Art Extractor</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎵 Spotify Album Art Extractor</h1>
+            <p>Get high-quality album artwork from Spotify links</p>
+        </header>
+
+        <main>
+            <div class="input-section">
+                <div class="input-group">
+                    <input 
+                        type="url" 
+                        id="spotifyUrl" 
+                        placeholder="Paste your Spotify link here (album, track, or playlist)..."
+                        aria-label="Spotify URL input"
+                    >
+                    <button id="extractBtn" onclick="extractAlbumArt()">
+                        <span class="btn-text">Extract Art</span>
+                        <div class="loading-spinner" style="display: none;"></div>
+                    </button>
+                </div>
+                <div class="example-links">
+                    <p>Example formats:</p>
+                    <ul>
+                        <li>https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy</li>
+                        <li>https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh</li>
+                        <li>https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="result-section" id="resultSection" style="display: none;">
+                <div class="album-info">
+                    <img id="albumArt" src="" alt="Album artwork" class="album-image">
+                    <div class="album-details">
+                        <h2 id="albumTitle">Album Title</h2>
+                        <p id="artistName">Artist Name</p>
+                        <div class="download-options">
+                            <button onclick="downloadImage()" class="download-btn">
+                                Download Full Size
+                            </button>
+                            <button onclick="copyImageUrl()" class="copy-btn">
+                                Copy Image URL
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="error-section" id="errorSection" style="display: none;">
+                <div class="error-message">
+                    <h3>⚠️ Error</h3>
+                    <p id="errorText"></p>
+                </div>
+            </div>
+        </main>
+
+        <footer>
+            <p>Made with ❤️ for music lovers | Lynxx</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
