@@ -2,7 +2,6 @@
 
 A simple, elegant web application that extracts high-quality album artwork from Spotify links. Perfect for music lovers who want to save album covers, create playlists visuals, or use artwork for other creative projects.
 
-![Spotify Album Art Extractor Screenshot](https://via.placeholder.com/800x400/1DB954/ffffff?text=Spotify+Album+Art+Extractor)
 
 ## ✨ Features
 
@@ -173,3 +172,4 @@ Made with ❤️ for music lovers everywhere
 
 
 **Note**: This tool is not affiliated with Spotify. It uses publicly available APIs and follows Spotify's terms of service.
+
