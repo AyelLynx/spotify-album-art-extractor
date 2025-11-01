@@ -6,6 +6,16 @@
     <title>Spotify Album Art Extractor</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Google Analytics -->
+    <!-- Replace GA_MEASUREMENT_ID with your actual Google Analytics Measurement ID -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=GA_MEASUREMENT_ID"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-HZDVE789LT');
+    </script>
 </head>
 <body>
     <div class="container">
@@ -65,9 +75,22 @@
         </main>
 
         <footer>
-            <p>Made with ❤️ for music lovers | Lynxx</p>
+            <p>Made with ❤️ for music lovers | <span id="visitor-count">👁️ Loading...</span> | Lynxx</p>
         </footer>
     </div>
+
+    <!-- Simple visitor counter -->
+    <script>
+        // CountAPI visitor counter - works immediately, no setup required
+        fetch('https://api.countapi.xyz/hit/lynxx-spotify-art/visits')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('visitor-count').textContent = `👁️ ${data.value} visitors`;
+            })
+            .catch(() => {
+                document.getElementById('visitor-count').textContent = '👁️ Visit counter';
+            });
+    </script>
 
     <script src="script.js"></script>
 </body>

@@ -1,0 +1,38 @@
+<!-- Simple Visitor Counter Options -->
+<!-- Choose ONE of these options and add to your index.html -->
+
+<!-- Option 1: Invisible counter (just for you to see stats) -->
+<img src="https://visitor-badge.glitch.me/badge?page_id=lynxx.spotify-album-art" style="display: none;" alt="visitor counter">
+
+<!-- Option 2: Visible counter badge -->
+<div style="text-align: center; margin: 1rem 0;">
+    <img src="https://visitor-badge.glitch.me/badge?page_id=lynxx.spotify-album-art&left_color=green&right_color=red" alt="Visitors">
+</div>
+
+<!-- Option 3: CountAPI counter (shows actual number) -->
+<div style="text-align: center; margin: 1rem 0;">
+    <span id="visitor-count">👁️ Loading visitors...</span>
+</div>
+<script>
+    // Simple visitor counter using CountAPI
+    fetch('https://api.countapi.xyz/hit/lynxx-spotify/visits')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('visitor-count').textContent = `👁️ ${data.value} visitors`;
+        })
+        .catch(() => {
+            document.getElementById('visitor-count').textContent = '👁️ Visitors counter unavailable';
+        });
+</script>
+
+<!-- Option 4: GitHub-style counter -->
+<div style="text-align: center; margin: 1rem 0;">
+    <img src="https://hits.dwyl.com/lynxx/spotify-album-art-extractor.svg?style=flat-square" alt="Hit Counter">
+</div>
+
+<!-- Instructions:
+1. Replace "lynxx" with your GitHub username
+2. Replace "spotify-album-art" with your repository name
+3. Add ONE of these options to your index.html before the </body> tag
+4. The counter will start working immediately after deployment
+-->
