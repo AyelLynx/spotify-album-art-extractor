@@ -378,21 +378,164 @@ async function downloadImage() {
     }
     
     try {
-        const response = await fetch(currentImageUrl);
-        const blob = await response.blob();
+        // Method 1: Try CORS proxy for download
+        let downloadUrl = currentImageUrl;
+        let blob = null;
         
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `${currentAlbumTitle} - ${currentArtistName}.jpg`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
+        try {
+            // Try direct fetch first (works locally)
+            const response = await fetch(currentImageUrl);
+            blob = await response.blob();
+        } catch (corsError) {
+            console.log('Direct fetch failed, trying CORS proxy...');
+            
+            // Method 2: Use CORS proxy
+            try {
+                const proxyUrl = 'https://api.allorigins.win/raw?url=';
+                const response = await fetch(proxyUrl + encodeURIComponent(currentImageUrl));
+                blob = await response.blob();
+            } catch (proxyError) {
+                console.log('CORS proxy failed, using canvas method...');
+                
+                // Method 3: Use canvas to download the displayed image
+                const img = document.getElementById('albumArt');
+                if (img && img.complete) {
+                    blob = await imageToBlob(img);
+                } else {
+                    throw new Error('No methods available for download');
+                }
+            }
+        }
+        
+        if (blob) {
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            
+            // Clean filename
+            const cleanTitle = currentAlbumTitle.replace(/[<>:"/\\|?*]/g, '');
+            const cleanArtist = currentArtistName.replace(/[<>:"/\\|?*]/g, '');
+            a.download = `${cleanArtist} - ${cleanTitle}.jpg`;
+            
+            // Trigger download
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            // Show success message temporarily
+            const downloadBtn = document.querySelector('.download-btn');
+            const originalText = downloadBtn.textContent;
+            downloadBtn.textContent = '✅ Downloaded!';
+            downloadBtn.style.background = '#28a745';
+            
+            setTimeout(() => {
+                downloadBtn.textContent = originalText;
+                downloadBtn.style.background = '#1DB954';
+            }, 2000);
+        }
+        
     } catch (error) {
-        console.error('Download failed:', error);
-        showError('Failed to download image. You can right-click the image and save it manually.');
+        console.error('All download methods failed:', error);
+        
+        // Fallback: Open image in new tab for manual save
+        showDownloadFallback();
     }
+}
+
+// Helper function to convert image element to blob using canvas
+async function imageToBlob(imgElement) {
+    return new Promise((resolve, reject) => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        canvas.width = imgElement.naturalWidth || 640;
+        canvas.height = imgElement.naturalHeight || 640;
+        
+        ctx.drawImage(imgElement, 0, 0);
+        
+        canvas.toBlob((blob) => {
+            if (blob) {
+                resolve(blob);
+            } else {
+                reject(new Error('Canvas to blob conversion failed'));
+            }
+        }, 'image/jpeg', 0.95);
+    });
+}
+
+// Show download fallback options
+function showDownloadFallback() {
+    const fallbackHtml = `
+        <div class="download-fallback" style="
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            z-index: 1000;
+            max-width: 400px;
+            text-align: center;
+        ">
+            <h3>Download Options</h3>
+            <p>Automatic download failed. Choose an option:</p>
+            <div style="margin: 1rem 0; display: flex; flex-direction: column; gap: 0.5rem;">
+                <button onclick="openImageInNewTab()" style="
+                    background: #1DB954;
+                    color: white;
+                    border: none;
+                    padding: 0.75rem;
+                    border-radius: 8px;
+                    cursor: pointer;
+                ">🖼️ Open Image in New Tab</button>
+                <button onclick="copyImageUrl()" style="
+                    background: #f0f0f0;
+                    color: #333;
+                    border: 1px solid #ddd;
+                    padding: 0.75rem;
+                    border-radius: 8px;
+                    cursor: pointer;
+                ">📋 Copy Image URL</button>
+            </div>
+            <button onclick="closeFallback()" style="
+                background: #ccc;
+                color: #666;
+                border: none;
+                padding: 0.5rem 1rem;
+                border-radius: 6px;
+                cursor: pointer;
+            ">Close</button>
+        </div>
+        <div class="fallback-overlay" onclick="closeFallback()" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 999;
+        "></div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', fallbackHtml);
+}
+
+// Open image in new tab for manual save
+function openImageInNewTab() {
+    window.open(currentImageUrl, '_blank');
+    closeFallback();
+}
+
+// Close download fallback
+function closeFallback() {
+    const fallback = document.querySelector('.download-fallback');
+    const overlay = document.querySelector('.fallback-overlay');
+    if (fallback) fallback.remove();
+    if (overlay) overlay.remove();
 }
 
 // Copy image URL to clipboard
