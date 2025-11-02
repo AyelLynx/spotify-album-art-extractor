@@ -20,11 +20,6 @@ async function extractAlbumArt() {
         return;
     }
     
-    if (!isValidSpotifyUrl(url)) {
-        showError('Please enter a valid Spotify URL (album, track, or playlist)');
-        return;
-    }
-    
     // Show loading state
     extractBtn.disabled = true;
     btnText.style.display = 'none';
@@ -33,15 +28,31 @@ async function extractAlbumArt() {
     errorSection.style.display = 'none';
     
     try {
+        // Handle spotify.link URLs by resolving them first
+        let finalUrl = url;
+        if (url.includes('spotify.link')) {
+            try {
+                finalUrl = await resolveSpotifyLink(url);
+            } catch (error) {
+                showError('Unable to resolve spotify.link URL. Please try copying the link directly from Spotify app or web player.');
+                return;
+            }
+        }
+        
+        if (!isValidSpotifyUrl(finalUrl)) {
+            showError('Please enter a valid Spotify URL (album, track, or playlist). Both open.spotify.com and spotify.link URLs are supported.');
+            return;
+        }
+        
         // Extract Spotify ID and type from URL
-        const { id, type } = parseSpotifyUrl(url);
+        const { id, type } = parseSpotifyUrl(finalUrl);
         
         // Try multiple methods to get album art
         let albumData = null;
         
         // Method 1: Try oEmbed API
         try {
-            albumData = await getAlbumArtFromOEmbed(url);
+            albumData = await getAlbumArtFromOEmbed(finalUrl);
         } catch (error) {
             console.log('oEmbed failed:', error.message);
         }
@@ -81,10 +92,44 @@ async function extractAlbumArt() {
     }
 }
 
+// Resolve spotify.link URLs to open.spotify.com URLs
+async function resolveSpotifyLink(shortUrl) {
+    try {
+        // Use a CORS proxy to follow the redirect
+        const proxyUrl = 'https://api.allorigins.win/raw?url=';
+        const response = await fetch(proxyUrl + encodeURIComponent(shortUrl), {
+            method: 'HEAD',
+            redirect: 'follow'
+        });
+        
+        // Try to get the final URL from the response
+        const finalUrl = response.url;
+        if (finalUrl && finalUrl.includes('open.spotify.com')) {
+            return finalUrl.replace(proxyUrl, '').replace(/.*?(https:\/\/open\.spotify\.com.*)/, '$1');
+        }
+        
+        // Alternative method: try to extract from response headers or body
+        const textResponse = await fetch(proxyUrl + encodeURIComponent(shortUrl));
+        const text = await textResponse.text();
+        
+        // Look for spotify URL in the response
+        const spotifyMatch = text.match(/https:\/\/open\.spotify\.com\/[^"'\s<>]+/);
+        if (spotifyMatch) {
+            return spotifyMatch[0];
+        }
+        
+        throw new Error('Could not resolve spotify.link URL');
+    } catch (error) {
+        // Fallback: try a different approach
+        throw new Error('Unable to resolve short link. Please use the direct Spotify URL instead.');
+    }
+}
+
 // Validate Spotify URL
 function isValidSpotifyUrl(url) {
     const spotifyUrlRegex = /^https:\/\/(open\.spotify\.com|spotify\.com)\/(album|track|playlist)\/[a-zA-Z0-9]+(\?.*)?$/;
-    return spotifyUrlRegex.test(url);
+    const spotifyLinkRegex = /^https:\/\/spotify\.link\/[a-zA-Z0-9]+$/;
+    return spotifyUrlRegex.test(url) || spotifyLinkRegex.test(url);
 }
 
 // Parse Spotify URL to extract ID and type
@@ -113,16 +158,77 @@ async function getAlbumArtFromOEmbed(url) {
     
     const data = await response.json();
     
-    // Extract image URL from the HTML thumbnail
+    // Extract image URL from the HTML thumbnail and upgrade to higher resolution
     if (data.thumbnail_url) {
+        // Spotify thumbnail URLs often come as 300x300, upgrade to 640x640
+        let imageUrl = data.thumbnail_url;
+        
+        // Try to upgrade image resolution
+        imageUrl = upgradeSpotifyImageResolution(imageUrl);
+        
         return {
-            imageUrl: data.thumbnail_url,
+            imageUrl: imageUrl,
             title: data.title || 'Unknown Title',
             artist: extractArtistFromTitle(data.title) || 'Unknown Artist'
         };
     }
     
     throw new Error('No thumbnail found in oEmbed response');
+}
+
+// Function to upgrade Spotify image URLs to highest resolution
+function upgradeSpotifyImageResolution(imageUrl) {
+    if (!imageUrl) return imageUrl;
+    
+    // Spotify image URLs follow patterns like:
+    // https://i.scdn.co/image/ab67616d0000b273[hash] (640x640)
+    // https://i.scdn.co/image/ab67616d00001e02[hash] (300x300)
+    // https://i.scdn.co/image/ab67616d0000485[hash] (64x64)
+    
+    // Replace size codes with the highest resolution (640x640)
+    const highResPatterns = [
+        { from: 'ab67616d00001e02', to: 'ab67616d0000b273' }, // 300x300 -> 640x640
+        { from: 'ab67616d00004851', to: 'ab67616d0000b273' }, // 64x64 -> 640x640
+        { from: 'ab67616d000048f1', to: 'ab67616d0000b273' }, // 160x160 -> 640x640
+    ];
+    
+    let upgradedUrl = imageUrl;
+    highResPatterns.forEach(pattern => {
+        upgradedUrl = upgradedUrl.replace(pattern.from, pattern.to);
+    });
+    
+    // Also try removing size parameters if present
+    upgradedUrl = upgradedUrl.replace(/[?&]w=\d+/, '').replace(/[?&]h=\d+/, '');
+    
+    return upgradedUrl;
+}
+
+// Function to get the best (highest resolution) image from Spotify's image array
+function getBestImageFromArray(images) {
+    if (!images || !Array.isArray(images) || images.length === 0) {
+        return null;
+    }
+    
+    // Spotify typically provides images in descending size order
+    // but let's find the largest one to be sure
+    let bestImage = images[0]; // Start with first image
+    
+    for (const image of images) {
+        // Look for 640x640 specifically
+        if (image.width === 640 && image.height === 640) {
+            return image.url;
+        }
+        
+        // Otherwise, prefer larger images
+        if (image.width && image.height) {
+            if (!bestImage.width || !bestImage.height || 
+                (image.width * image.height > bestImage.width * bestImage.height)) {
+                bestImage = image;
+            }
+        }
+    }
+    
+    return bestImage.url;
 }
 
 // Method 2: Get album art using Spotify Web API (through CORS proxy)
@@ -149,20 +255,24 @@ async function getAlbumArtFromWebAPI(id, type) {
     let imageUrl, title, artist;
     
     if (type === 'album') {
-        imageUrl = data.images?.[0]?.url;
+        // Get the highest resolution image (first in array is usually largest)
+        imageUrl = getBestImageFromArray(data.images);
         title = data.name;
         artist = data.artists?.[0]?.name;
     } else if (type === 'track') {
-        imageUrl = data.album?.images?.[0]?.url;
+        // Get album art from track data
+        imageUrl = getBestImageFromArray(data.album?.images);
         title = data.album?.name;
         artist = data.artists?.[0]?.name;
     } else if (type === 'playlist') {
-        imageUrl = data.images?.[0]?.url;
+        imageUrl = getBestImageFromArray(data.images);
         title = data.name;
         artist = `Playlist by ${data.owner?.display_name}`;
     }
     
     if (imageUrl) {
+        // Ensure we have the highest resolution
+        imageUrl = upgradeSpotifyImageResolution(imageUrl);
         return { imageUrl, title, artist };
     }
     
@@ -188,8 +298,11 @@ async function getAlbumArtFromEmbed(id, type) {
         const titleMatch = html.match(/<meta property="og:title" content="([^"]+)"/);
         
         if (imageMatch) {
+            // Upgrade the extracted image to highest resolution
+            let imageUrl = upgradeSpotifyImageResolution(imageMatch[1]);
+            
             return {
-                imageUrl: imageMatch[1],
+                imageUrl: imageUrl,
                 title: titleMatch ? titleMatch[1] : 'Unknown Title',
                 artist: 'Unknown Artist'
             };
@@ -311,13 +424,79 @@ async function copyImageUrl() {
     }
 }
 
-// Add enter key support for input field
+// Add enter key support for input field and mobile improvements
 document.addEventListener('DOMContentLoaded', function() {
     const urlInput = document.getElementById('spotifyUrl');
+    const extractBtn = document.getElementById('extractBtn');
     
+    // Enter key support
     urlInput.addEventListener('keypress', function(event) {
         if (event.key === 'Enter') {
             extractAlbumArt();
+        }
+    });
+    
+    // Mobile improvements
+    if (/Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // Add mobile-specific optimizations
+        urlInput.setAttribute('autocomplete', 'off');
+        urlInput.setAttribute('autocorrect', 'off');
+        urlInput.setAttribute('autocapitalize', 'off');
+        urlInput.setAttribute('spellcheck', 'false');
+        
+        // Prevent zoom on focus for iOS
+        urlInput.addEventListener('focus', function() {
+            document.querySelector('meta[name=viewport]').setAttribute('content', 
+                'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+        });
+        
+        urlInput.addEventListener('blur', function() {
+            document.querySelector('meta[name=viewport]').setAttribute('content', 
+                'width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes');
+        });
+        
+        // Add mobile-friendly paste button
+        if (navigator.clipboard) {
+            const pasteBtn = document.createElement('button');
+            pasteBtn.textContent = '📋 Paste';
+            pasteBtn.className = 'paste-btn';
+            pasteBtn.style.cssText = `
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                background: #1DB954;
+                color: white;
+                border: none;
+                padding: 0.5rem;
+                border-radius: 6px;
+                font-size: 0.8rem;
+                cursor: pointer;
+                z-index: 10;
+            `;
+            
+            const inputGroup = document.querySelector('.input-group');
+            inputGroup.style.position = 'relative';
+            inputGroup.appendChild(pasteBtn);
+            
+            pasteBtn.addEventListener('click', async function(e) {
+                e.preventDefault();
+                try {
+                    const text = await navigator.clipboard.readText();
+                    urlInput.value = text;
+                    urlInput.focus();
+                } catch (err) {
+                    console.log('Paste failed:', err);
+                }
+            });
+        }
+    }
+    
+    // Improved error handling for mobile
+    window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        if (event.reason.message && event.reason.message.includes('spotify.link')) {
+            showError('Unable to process spotify.link URL. Please try copying the full Spotify URL instead.');
         }
     });
     
@@ -326,4 +505,5 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('Album: https://open.spotify.com/album/4aawyAB9vmqN3uQ7FjRGTy');
     console.log('Track: https://open.spotify.com/track/4iV5W9uYEdYUVa79Axb7Rh');
     console.log('Playlist: https://open.spotify.com/playlist/37i9dQZF1DXcBWIGoYBM5M');
+    console.log('Short link: https://spotify.link/Xh5iOW9nWXb');
 });
